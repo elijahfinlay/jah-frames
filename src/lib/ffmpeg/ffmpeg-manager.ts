@@ -20,10 +20,18 @@ export function onFFmpegLog(cb: LogCallback) {
   return () => { logListeners.delete(cb); };
 }
 
-// Use jsdelivr (recommended by ffmpeg.wasm) with latest 0.12.x core
 const CORE_VERSION = "0.12.10";
 const BASE_URL = `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${CORE_VERSION}/dist/esm`;
 const MT_BASE_URL = `https://cdn.jsdelivr.net/npm/@ffmpeg/core-mt@${CORE_VERSION}/dist/esm`;
+
+function setupListeners(ffmpeg: FFmpeg) {
+  ffmpeg.on("progress", ({ progress }) => {
+    progressListeners.forEach((cb) => cb(Math.max(0, Math.min(1, progress))));
+  });
+  ffmpeg.on("log", ({ message }) => {
+    logListeners.forEach((cb) => cb(message));
+  });
+}
 
 export async function getFFmpeg(): Promise<FFmpeg> {
   if (ffmpegInstance && ffmpegInstance.loaded) return ffmpegInstance;
@@ -34,34 +42,36 @@ export async function getFFmpeg(): Promise<FFmpeg> {
   }
 
   loadPromise = (async () => {
-    ffmpegInstance = new FFmpeg();
+    // Use our self-contained worker from public/ to avoid bundler issues
+    // with relative ES module imports in @ffmpeg/ffmpeg's worker.js
+    const classWorkerURL = "/ffmpeg-worker.js";
 
-    ffmpegInstance.on("progress", ({ progress }) => {
-      progressListeners.forEach((cb) => cb(Math.max(0, Math.min(1, progress))));
-    });
-
-    ffmpegInstance.on("log", ({ message }) => {
-      logListeners.forEach((cb) => cb(message));
-    });
-
-    try {
-      // Try multi-threaded first (requires SharedArrayBuffer / crossOriginIsolated)
-      if (typeof window !== "undefined" && window.crossOriginIsolated) {
+    // Try multi-threaded first (requires SharedArrayBuffer / crossOriginIsolated)
+    if (typeof window !== "undefined" && window.crossOriginIsolated) {
+      try {
+        console.log("FFmpeg: attempting multi-threaded load...");
+        const inst = new FFmpeg();
+        setupListeners(inst);
         const coreURL = await toBlobURL(`${MT_BASE_URL}/ffmpeg-core.js`, "text/javascript");
         const wasmURL = await toBlobURL(`${MT_BASE_URL}/ffmpeg-core.wasm`, "application/wasm");
         const workerURL = await toBlobURL(`${MT_BASE_URL}/ffmpeg-core.worker.js`, "text/javascript");
-        await ffmpegInstance.load({ coreURL, wasmURL, workerURL });
+        await inst.load({ classWorkerURL, coreURL, wasmURL, workerURL });
+        ffmpegInstance = inst;
         console.log("FFmpeg loaded (multi-threaded)");
         return;
+      } catch (err) {
+        console.warn("Multi-threaded FFmpeg failed, trying single-threaded:", err);
       }
-    } catch (err) {
-      console.warn("Multi-threaded FFmpeg failed:", err);
     }
 
-    // Fallback: single-threaded (works without SharedArrayBuffer)
+    // Fallback: single-threaded (fresh instance)
+    console.log("FFmpeg: attempting single-threaded load...");
+    const inst = new FFmpeg();
+    setupListeners(inst);
     const coreURL = await toBlobURL(`${BASE_URL}/ffmpeg-core.js`, "text/javascript");
     const wasmURL = await toBlobURL(`${BASE_URL}/ffmpeg-core.wasm`, "application/wasm");
-    await ffmpegInstance.load({ coreURL, wasmURL });
+    await inst.load({ classWorkerURL, coreURL, wasmURL });
+    ffmpegInstance = inst;
     console.log("FFmpeg loaded (single-threaded)");
   })();
 
