@@ -17,7 +17,6 @@ export async function probeVideoMetadata(file: File): Promise<VideoMetadata> {
   await ffmpeg.writeFile(inputName, await fetchFile(file));
 
   let logOutput = "";
-  // Use module-level listener system which properly returns an unsubscribe function
   const unsub = onFFmpegLog((message) => {
     logOutput += message + "\n";
   });
@@ -26,11 +25,12 @@ export async function probeVideoMetadata(file: File): Promise<VideoMetadata> {
     await ffmpeg.exec(["-i", inputName, "-f", "null", "-"]).catch(() => {
       // FFmpeg exits with error when no output specified, but logs contain info
     });
+    // Let pending log events flush before unsubscribing
+    await new Promise((r) => setTimeout(r, 0));
   } finally {
     unsub();
+    await cleanupFS(ffmpeg, [inputName]);
   }
-
-  await cleanupFS(ffmpeg, [inputName]);
 
   return parseFFmpegLog(logOutput);
 }

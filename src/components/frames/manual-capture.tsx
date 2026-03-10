@@ -1,16 +1,15 @@
 "use client";
 
-import { useRef, useCallback, useState } from "react";
+import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Camera, Loader2 } from "lucide-react";
-import { VideoPreview } from "@/components/shared/video-preview";
 import { extractSingleFrame } from "@/lib/ffmpeg/frame-extractor";
 import type { ExtractedFrame, ImageFormat } from "@/lib/types";
 import { formatTimestamp } from "@/lib/utils/time-utils";
 import { toast } from "sonner";
 
 interface ManualCaptureProps {
-  videoUrl: string;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
   videoFile: File;
   format: ImageFormat;
   quality: number;
@@ -18,19 +17,16 @@ interface ManualCaptureProps {
 }
 
 export function ManualCapture({
-  videoUrl,
+  videoRef,
   videoFile,
   format,
   quality,
   onCapture,
 }: ManualCaptureProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [currentTime, setCurrentTime] = useState(0);
   const [capturing, setCapturing] = useState(false);
 
   const handleCapture = useCallback(async () => {
     if (!videoRef.current) return;
-    // Read time directly from the video element to avoid stale state after seek
     const captureTime = videoRef.current.currentTime;
     setCapturing(true);
     try {
@@ -43,34 +39,25 @@ export function ManualCapture({
     } finally {
       setCapturing(false);
     }
-  }, [videoFile, format, quality, onCapture]);
+  }, [videoFile, format, quality, onCapture, videoRef]);
 
   return (
-    <div className="space-y-4">
-      <VideoPreview
-        src={videoUrl}
-        videoRef={videoRef}
-        onTimeUpdate={setCurrentTime}
-        className="aspect-video"
-      />
-
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">
-          Current: <span className="font-medium text-foreground">{formatTimestamp(currentTime)}</span>
-        </span>
-        <Button
-          onClick={handleCapture}
-          disabled={capturing}
-          className="gap-2 bg-primary text-primary-foreground"
-        >
-          {capturing ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Camera className="h-4 w-4" />
-          )}
-          Capture Frame
-        </Button>
-      </div>
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">
+        Use the video player above to seek to the frame you want, then click capture.
+      </p>
+      <Button
+        onClick={handleCapture}
+        disabled={capturing}
+        className="w-full gap-2 bg-primary text-primary-foreground"
+      >
+        {capturing ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Camera className="h-4 w-4" />
+        )}
+        Capture Frame
+      </Button>
     </div>
   );
 }

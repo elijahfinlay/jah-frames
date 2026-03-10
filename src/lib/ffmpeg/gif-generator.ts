@@ -12,6 +12,9 @@ export async function generateGif(
   settings: GifSettings,
   onProgress?: (progress: number) => void
 ): Promise<{ blob: Blob; url: string }> {
+  const duration = settings.endTime - settings.startTime;
+  if (duration <= 0) throw new Error("GIF duration must be positive");
+
   const ffmpeg = await getFFmpeg();
   const inputName = "gif_input" + getFileExt(file.name);
   const paletteName = "palette.png";
@@ -19,42 +22,44 @@ export async function generateGif(
 
   await ffmpeg.writeFile(inputName, await fetchFile(file));
 
-  const filters = `fps=${settings.fps},scale=${settings.width}:-1:flags=lanczos`;
+  try {
+    const filters = `fps=${settings.fps},scale=${settings.width}:-1:flags=lanczos`;
 
-  // Pass 1: Generate palette
-  onProgress?.(0.1);
-  await ffmpeg.exec([
-    "-ss", settings.startTime.toString(),
-    "-t", (settings.endTime - settings.startTime).toString(),
-    "-i", inputName,
-    "-vf", `${filters},palettegen=stats_mode=diff`,
-    "-y", paletteName,
-  ]);
+    // Pass 1: Generate palette
+    onProgress?.(0.1);
+    await ffmpeg.exec([
+      "-ss", settings.startTime.toString(),
+      "-t", duration.toString(),
+      "-i", inputName,
+      "-vf", `${filters},palettegen=stats_mode=diff`,
+      "-y", paletteName,
+    ]);
 
-  // Pass 2: Generate GIF using palette
-  onProgress?.(0.4);
-  const loopFlag = settings.loop ? "0" : "-1";
-  await ffmpeg.exec([
-    "-ss", settings.startTime.toString(),
-    "-t", (settings.endTime - settings.startTime).toString(),
-    "-i", inputName,
-    "-i", paletteName,
-    "-lavfi", `${filters}[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=5`,
-    "-loop", loopFlag,
-    "-y", outputName,
-  ]);
+    // Pass 2: Generate GIF using palette
+    onProgress?.(0.4);
+    const loopFlag = settings.loop ? "0" : "-1";
+    await ffmpeg.exec([
+      "-ss", settings.startTime.toString(),
+      "-t", duration.toString(),
+      "-i", inputName,
+      "-i", paletteName,
+      "-lavfi", `${filters}[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=5`,
+      "-loop", loopFlag,
+      "-y", outputName,
+    ]);
 
-  onProgress?.(0.9);
+    onProgress?.(0.9);
 
-  const data = await ffmpeg.readFile(outputName);
-  const blob = new Blob([data as BlobPart], { type: "image/gif" });
+    const data = await ffmpeg.readFile(outputName);
+    const blob = new Blob([data as BlobPart], { type: "image/gif" });
 
-  await cleanupFS(ffmpeg, [inputName, paletteName, outputName]);
+    onProgress?.(1);
 
-  onProgress?.(1);
-
-  return {
-    blob,
-    url: URL.createObjectURL(blob),
-  };
+    return {
+      blob,
+      url: URL.createObjectURL(blob),
+    };
+  } finally {
+    await cleanupFS(ffmpeg, [inputName, paletteName, outputName]);
+  }
 }

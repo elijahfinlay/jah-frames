@@ -20,9 +20,15 @@ export function useFFmpeg() {
       await getFFmpeg();
       setLoaded(true);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to load FFmpeg";
-      console.error("FFmpeg load error:", err);
-      // Auto-retry once on first failure (CDN fetch can be flaky)
+      // Worker errors come back as strings, not Error objects
+      const msg = typeof err === "string"
+        ? err
+        : err instanceof Error
+          ? err.message
+          : "Failed to load FFmpeg";
+      console.error("FFmpeg load error:", msg, err);
+
+      // Auto-retry once on first failure
       if (attemptRef.current === 0) {
         attemptRef.current = 1;
         console.log("Retrying FFmpeg load...");
@@ -31,8 +37,13 @@ export function useFFmpeg() {
           setLoaded(true);
           return;
         } catch (retryErr) {
-          console.error("FFmpeg retry failed:", retryErr);
-          setError(msg);
+          const retryMsg = typeof retryErr === "string"
+            ? retryErr
+            : retryErr instanceof Error
+              ? retryErr.message
+              : "Failed to load FFmpeg";
+          console.error("FFmpeg retry failed:", retryMsg, retryErr);
+          setError(retryMsg);
         }
       } else {
         setError(msg);

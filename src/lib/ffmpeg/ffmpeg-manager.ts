@@ -33,6 +33,16 @@ function setupListeners(ffmpeg: FFmpeg) {
   });
 }
 
+async function getClassWorkerURL(): Promise<string> {
+  // Fetch our self-contained worker from public/ and create a blob URL.
+  // This avoids Turbopack/webpack failing to resolve the worker from
+  // inside node_modules/@ffmpeg/ffmpeg when it analyzes new URL() patterns.
+  const resp = await fetch("/ffmpeg-worker.js");
+  const text = await resp.text();
+  const blob = new Blob([text], { type: "text/javascript" });
+  return URL.createObjectURL(blob);
+}
+
 export async function getFFmpeg(): Promise<FFmpeg> {
   if (ffmpegInstance && ffmpegInstance.loaded) return ffmpegInstance;
 
@@ -42,9 +52,7 @@ export async function getFFmpeg(): Promise<FFmpeg> {
   }
 
   loadPromise = (async () => {
-    // Use our self-contained worker from public/ to avoid bundler issues
-    // with relative ES module imports in @ffmpeg/ffmpeg's worker.js
-    const classWorkerURL = "/ffmpeg-worker.js";
+    const classWorkerURL = await getClassWorkerURL();
 
     // Try multi-threaded first (requires SharedArrayBuffer / crossOriginIsolated)
     if (typeof window !== "undefined" && window.crossOriginIsolated) {

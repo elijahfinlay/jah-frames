@@ -9,6 +9,13 @@ export function useVideoMetadata() {
 
   const loadVideo = useCallback(async (file: File) => {
     setLoading(true);
+
+    // Revoke previous blob URL before creating a new one
+    setVideoFile((prev) => {
+      if (prev?.url) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+
     const url = URL.createObjectURL(file);
 
     return new Promise<VideoFile>((resolve, reject) => {
@@ -25,7 +32,7 @@ export function useVideoMetadata() {
           duration: video.duration,
           width: video.videoWidth,
           height: video.videoHeight,
-          fps: 30, // Default, actual FPS determined by FFmpeg probe
+          fps: 30,
         };
         setVideoFile(vf);
         setLoading(false);
@@ -43,11 +50,11 @@ export function useVideoMetadata() {
   }, []);
 
   const clearVideo = useCallback(() => {
-    if (videoFile) {
-      URL.revokeObjectURL(videoFile.url);
-    }
-    setVideoFile(null);
-  }, [videoFile]);
+    setVideoFile((prev) => {
+      if (prev?.url) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+  }, []);
 
   return { videoFile, loading, loadVideo, clearVideo };
 }

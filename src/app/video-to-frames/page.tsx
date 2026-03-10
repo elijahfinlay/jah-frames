@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Layers, ImageIcon, Camera } from "lucide-react";
 import { toast } from "sonner";
@@ -35,6 +35,7 @@ export default function VideoToFramesPage() {
   const filterStore = useFilterStore();
   const [selectedFrame, setSelectedFrame] = useState<ExtractedFrame | null>(null);
   const [activeTab, setActiveTab] = useState("auto");
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const handleFileSelect = useCallback(
     async (file: File) => {
@@ -92,7 +93,6 @@ export default function VideoToFramesPage() {
         </p>
       </motion.div>
 
-      {/* Centered dropzone before video is loaded */}
       {!videoFile && (
         <div className="mx-auto max-w-xl">
           <VideoDropzone onFileSelect={handleFileSelect} />
@@ -100,20 +100,19 @@ export default function VideoToFramesPage() {
       )}
 
       {videoFile && (
-      <div className="grid gap-6 lg:grid-cols-[350px_1fr]">
-        {/* Controls Sidebar */}
-        <div className="space-y-4">
-          <Card>
-            <CardContent className="p-4">
-              <VideoDropzone
-                onFileSelect={handleFileSelect}
-                currentFile={{ name: videoFile.name, size: videoFile.size }}
-                onClear={handleClear}
-              />
-            </CardContent>
-          </Card>
+        <div className="grid gap-6 lg:grid-cols-[350px_1fr]">
+          {/* Controls Sidebar */}
+          <div className="space-y-4">
+            <Card>
+              <CardContent className="p-4">
+                <VideoDropzone
+                  onFileSelect={handleFileSelect}
+                  currentFile={{ name: videoFile.name, size: videoFile.size }}
+                  onClear={handleClear}
+                />
+              </CardContent>
+            </Card>
 
-          {videoFile && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
               <Card>
                 <CardContent className="p-4">
@@ -149,7 +148,7 @@ export default function VideoToFramesPage() {
 
                     <TabsContent value="manual">
                       <ManualCapture
-                        videoUrl={videoFile.url}
+                        videoRef={videoRef}
                         videoFile={videoFile.file}
                         format={store.settings.format}
                         quality={store.settings.quality}
@@ -166,79 +165,80 @@ export default function VideoToFramesPage() {
                 </CardContent>
               </Card>
             </motion.div>
-          )}
-        </div>
+          </div>
 
-        {/* Main Content */}
-        <div className="space-y-4">
-          {showMemoryWarning && (
-            <WarningBanner message="Large file detected. Extraction may use significant memory. Consider using a time range to limit frames." />
-          )}
+          {/* Main Content */}
+          <div className="space-y-4">
+            {showMemoryWarning && (
+              <WarningBanner message="Large file detected. Extraction may use significant memory. Consider using a time range to limit frames." />
+            )}
 
-          {videoFile && activeTab === "auto" && (
             <Card>
               <CardContent className="p-4">
-                <VideoPreview src={videoFile.url} className="aspect-video" />
+                <VideoPreview
+                  src={videoFile.url}
+                  videoRef={videoRef}
+                  className="aspect-video"
+                />
               </CardContent>
             </Card>
-          )}
 
-          <AnimatePresence>
-            {extracting && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-              >
-                <Card>
-                  <CardContent className="p-4">
-                    <ProgressBar
-                      progress={progress}
-                      label={`Extracting frames... (${frameCount} found)`}
-                    />
-                  </CardContent>
-                </Card>
+            <AnimatePresence>
+              {extracting && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                >
+                  <Card>
+                    <CardContent className="p-4">
+                      <ProgressBar
+                        progress={progress}
+                        label={`Extracting frames... (${frameCount} found)`}
+                      />
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {selectedFrame && (
+              <Card>
+                <CardContent className="p-4">
+                  <FrameComparison frameUrl={selectedFrame.url} />
+                </CardContent>
+              </Card>
+            )}
+
+            {frames.length > 0 && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    {frames.length} frame{frames.length !== 1 ? "s" : ""} extracted
+                  </p>
+                  <DownloadButton
+                    frameCount={frames.length}
+                    onDownloadAll={() =>
+                      downloadZip(frames, videoFile.name, store.settings.format)
+                    }
+                    downloading={downloading}
+                    progress={zipProgress}
+                  />
+                </div>
+
+                <FrameGallery
+                  frames={frames}
+                  selectedId={selectedFrame?.id}
+                  onSelect={setSelectedFrame}
+                  onDownload={(frame, index) =>
+                    downloadSingle(frame, videoFile.name, index)
+                  }
+                  onRemove={removeFrame}
+                />
               </motion.div>
             )}
-          </AnimatePresence>
-
-          {selectedFrame && (
-            <Card>
-              <CardContent className="p-4">
-                <FrameComparison frameUrl={selectedFrame.url} />
-              </CardContent>
-            </Card>
-          )}
-
-          {frames.length > 0 && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">
-                  {frames.length} frame{frames.length !== 1 ? "s" : ""} extracted
-                </p>
-                <DownloadButton
-                  frameCount={frames.length}
-                  onDownloadAll={() =>
-                    downloadZip(frames, videoFile?.name || "video", store.settings.format)
-                  }
-                  downloading={downloading}
-                  progress={zipProgress}
-                />
-              </div>
-
-              <FrameGallery
-                frames={frames}
-                selectedId={selectedFrame?.id}
-                onSelect={setSelectedFrame}
-                onDownload={(frame, index) =>
-                  downloadSingle(frame, videoFile?.name || "video", index)
-                }
-                onRemove={removeFrame}
-              />
-            </motion.div>
-          )}
+          </div>
         </div>
-      </div>
       )}
     </div>
   );
