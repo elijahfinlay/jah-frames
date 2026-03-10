@@ -21,7 +21,7 @@ import { DEFAULT_CONTACT_SHEET_SETTINGS } from "@/lib/constants";
 import type { ContactSheetSettings } from "@/lib/types";
 
 export default function ContactSheetPage() {
-  const { loaded: ffmpegReady } = useFFmpeg();
+  const { loaded: ffmpegReady, error: ffmpegError } = useFFmpeg();
   const { videoFile, loadVideo, clearVideo } = useVideoMetadata();
   const { frames, extracting, progress, frameCount, extract, clearFrames } =
     useFrameExtraction();
@@ -114,68 +114,72 @@ export default function ContactSheetPage() {
         </p>
       </motion.div>
 
+      {!videoFile && (
+        <div className="mx-auto max-w-xl">
+          <VideoDropzone onFileSelect={handleFileSelect} />
+        </div>
+      )}
+
+      {videoFile && (
       <div className="grid gap-6 lg:grid-cols-[350px_1fr]">
         <div className="space-y-4">
           <Card>
             <CardContent className="p-4">
               <VideoDropzone
                 onFileSelect={handleFileSelect}
-                currentFile={videoFile ? { name: videoFile.name, size: videoFile.size } : null}
+                currentFile={{ name: videoFile.name, size: videoFile.size }}
                 onClear={handleClear}
               />
             </CardContent>
           </Card>
 
-          {videoFile && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-              <Card>
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <Card>
+              <CardContent className="p-4">
+                <h3 className="mb-3 text-sm font-semibold">1. Extract Frames</h3>
+                <ExtractionControls
+                  settings={store.settings}
+                  duration={videoFile.duration}
+                  extracting={extracting}
+                  ffmpegReady={ffmpegReady}
+                  ffmpegError={ffmpegError}
+                  onModeChange={store.setMode}
+                  onFpsChange={store.setFps}
+                  onCountChange={store.setCount}
+                  onStartTimeChange={store.setStartTime}
+                  onEndTimeChange={store.setEndTime}
+                  onFormatChange={store.setFormat}
+                  onQualityChange={store.setQuality}
+                  onExtract={handleExtract}
+                />
+              </CardContent>
+            </Card>
+
+            {frames.length > 0 && (
+              <Card className="mt-4">
                 <CardContent className="p-4">
-                  <h3 className="mb-3 text-sm font-semibold">1. Extract Frames</h3>
-                  <ExtractionControls
-                    settings={store.settings}
-                    duration={videoFile.duration}
-                    extracting={extracting}
-                    ffmpegReady={ffmpegReady}
-                    onModeChange={store.setMode}
-                    onFpsChange={store.setFps}
-                    onCountChange={store.setCount}
-                    onStartTimeChange={store.setStartTime}
-                    onEndTimeChange={store.setEndTime}
-                    onFormatChange={store.setFormat}
-                    onQualityChange={store.setQuality}
-                    onExtract={handleExtract}
+                  <h3 className="mb-3 text-sm font-semibold">2. Sheet Settings</h3>
+                  <SheetControls
+                    settings={sheetSettings}
+                    onSettingsChange={(partial) =>
+                      setSheetSettings((prev) => ({ ...prev, ...partial }))
+                    }
+                    frameCount={frames.length}
+                    generating={generating}
+                    onGenerate={handleGenerateSheet}
                   />
                 </CardContent>
               </Card>
-
-              {frames.length > 0 && (
-                <Card className="mt-4">
-                  <CardContent className="p-4">
-                    <h3 className="mb-3 text-sm font-semibold">2. Sheet Settings</h3>
-                    <SheetControls
-                      settings={sheetSettings}
-                      onSettingsChange={(partial) =>
-                        setSheetSettings((prev) => ({ ...prev, ...partial }))
-                      }
-                      frameCount={frames.length}
-                      generating={generating}
-                      onGenerate={handleGenerateSheet}
-                    />
-                  </CardContent>
-                </Card>
-              )}
-            </motion.div>
-          )}
+            )}
+          </motion.div>
         </div>
 
         <div className="space-y-4">
-          {videoFile && (
-            <Card>
-              <CardContent className="p-4">
-                <VideoPreview src={videoFile.url} className="aspect-video" />
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <CardContent className="p-4">
+              <VideoPreview src={videoFile.url} className="aspect-video" />
+            </CardContent>
+          </Card>
 
           {extracting && (
             <Card>
@@ -198,13 +202,14 @@ export default function ContactSheetPage() {
                 <SheetPreview
                   url={sheetUrl}
                   blob={sheetBlob}
-                  filename={videoFile?.name || "video"}
+                  filename={videoFile.name}
                 />
               </CardContent>
             </Card>
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

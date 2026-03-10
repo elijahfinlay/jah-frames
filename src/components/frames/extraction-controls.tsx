@@ -16,6 +16,7 @@ interface ExtractionControlsProps {
   duration: number;
   extracting: boolean;
   ffmpegReady: boolean;
+  ffmpegError?: string | null;
   onModeChange: (mode: ExtractionMode) => void;
   onFpsChange: (fps: number) => void;
   onCountChange: (count: number) => void;
@@ -31,6 +32,7 @@ export function ExtractionControls({
   duration,
   extracting,
   ffmpegReady,
+  ffmpegError,
   onModeChange,
   onFpsChange,
   onCountChange,
@@ -106,6 +108,12 @@ export function ExtractionControls({
         format={settings.format}
       />
 
+      {ffmpegError && (
+        <p className="text-sm text-destructive">
+          FFmpeg failed to load: {ffmpegError}. Try refreshing the page.
+        </p>
+      )}
+
       <Button
         onClick={onExtract}
         disabled={extracting || !ffmpegReady}
@@ -117,6 +125,8 @@ export function ExtractionControls({
             <Loader2 className="h-4 w-4 animate-spin" />
             Extracting...
           </>
+        ) : ffmpegError ? (
+          <>FFmpeg Error — Refresh Page</>
         ) : !ffmpegReady ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />

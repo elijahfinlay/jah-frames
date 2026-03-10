@@ -69,44 +69,47 @@ export default function GifMakerPage() {
         </p>
       </motion.div>
 
+      {!videoFile && (
+        <div className="mx-auto max-w-xl">
+          <VideoDropzone onFileSelect={handleFileSelect} />
+        </div>
+      )}
+
+      {videoFile && (
       <div className="grid gap-6 lg:grid-cols-[350px_1fr]">
         <div className="space-y-4">
           <Card>
             <CardContent className="p-4">
               <VideoDropzone
                 onFileSelect={handleFileSelect}
-                currentFile={videoFile ? { name: videoFile.name, size: videoFile.size } : null}
+                currentFile={{ name: videoFile.name, size: videoFile.size }}
                 onClear={handleClear}
               />
             </CardContent>
           </Card>
 
-          {videoFile && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-              <Card>
-                <CardContent className="p-4">
-                  <GifControls
-                    settings={store.settings}
-                    duration={videoFile.duration}
-                    generating={store.generating}
-                    ffmpegReady={ffmpegReady}
-                    onSettingsChange={store.setSettings}
-                    onGenerate={handleGenerate}
-                  />
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <Card>
+              <CardContent className="p-4">
+                <GifControls
+                  settings={store.settings}
+                  duration={videoFile.duration}
+                  generating={store.generating}
+                  ffmpegReady={ffmpegReady}
+                  onSettingsChange={store.setSettings}
+                  onGenerate={handleGenerate}
+                />
+              </CardContent>
+            </Card>
+          </motion.div>
         </div>
 
         <div className="space-y-4">
-          {videoFile && (
-            <Card>
-              <CardContent className="p-4">
-                <VideoPreview src={videoFile.url} className="aspect-video" />
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <CardContent className="p-4">
+              <VideoPreview src={videoFile.url} className="aspect-video" />
+            </CardContent>
+          </Card>
 
           {store.generating && (
             <Card>
@@ -122,13 +125,14 @@ export default function GifMakerPage() {
                 <GifPreview
                   url={store.resultUrl}
                   blob={store.resultBlob}
-                  filename={videoFile?.name || "video"}
+                  filename={videoFile.name}
                 />
               </CardContent>
             </Card>
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

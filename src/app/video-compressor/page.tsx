@@ -69,51 +69,54 @@ export default function VideoCompressorPage() {
         </p>
       </motion.div>
 
+      {!videoFile && (
+        <div className="mx-auto max-w-xl">
+          <VideoDropzone onFileSelect={handleFileSelect} />
+        </div>
+      )}
+
+      {videoFile && (
       <div className="grid gap-6 lg:grid-cols-[350px_1fr]">
         <div className="space-y-4">
           <Card>
             <CardContent className="p-4">
               <VideoDropzone
                 onFileSelect={handleFileSelect}
-                currentFile={videoFile ? { name: videoFile.name, size: videoFile.size } : null}
+                currentFile={{ name: videoFile.name, size: videoFile.size }}
                 onClear={handleClear}
               />
             </CardContent>
           </Card>
 
-          {videoFile && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-              <Card>
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <Card>
+              <CardContent className="p-4">
+                <CompressionControls
+                  settings={store.settings}
+                  compressing={store.compressing}
+                  ffmpegReady={ffmpegReady}
+                  onSettingsChange={store.setSettings}
+                  onCompress={handleCompress}
+                />
+              </CardContent>
+            </Card>
+
+            {store.settings.mode === "quality" && (
+              <Card className="mt-4">
                 <CardContent className="p-4">
-                  <CompressionControls
-                    settings={store.settings}
-                    compressing={store.compressing}
-                    ffmpegReady={ffmpegReady}
-                    onSettingsChange={store.setSettings}
-                    onCompress={handleCompress}
-                  />
+                  <SizeEstimator originalSize={videoFile.size} crf={store.settings.crf} />
                 </CardContent>
               </Card>
-
-              {videoFile && store.settings.mode === "quality" && (
-                <Card className="mt-4">
-                  <CardContent className="p-4">
-                    <SizeEstimator originalSize={videoFile.size} crf={store.settings.crf} />
-                  </CardContent>
-                </Card>
-              )}
-            </motion.div>
-          )}
+            )}
+          </motion.div>
         </div>
 
         <div className="space-y-4">
-          {videoFile && (
-            <Card>
-              <CardContent className="p-4">
-                <VideoPreview src={videoFile.url} className="aspect-video" />
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <CardContent className="p-4">
+              <VideoPreview src={videoFile.url} className="aspect-video" />
+            </CardContent>
+          </Card>
 
           {store.compressing && (
             <Card>
@@ -124,10 +127,11 @@ export default function VideoCompressorPage() {
           )}
 
           {store.result && (
-            <CompressionResultCard result={store.result} filename={videoFile?.name || "video"} />
+            <CompressionResultCard result={store.result} filename={videoFile.name} />
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

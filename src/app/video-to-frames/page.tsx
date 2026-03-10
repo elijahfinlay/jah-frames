@@ -26,7 +26,7 @@ import { MEMORY_WARNING_THRESHOLD } from "@/lib/constants";
 import type { ExtractedFrame } from "@/lib/types";
 
 export default function VideoToFramesPage() {
-  const { loaded: ffmpegReady } = useFFmpeg();
+  const { loaded: ffmpegReady, error: ffmpegError } = useFFmpeg();
   const { videoFile, loadVideo, clearVideo } = useVideoMetadata();
   const { frames, extracting, progress, frameCount, extract, clearFrames, removeFrame, setFrames } =
     useFrameExtraction();
@@ -92,6 +92,14 @@ export default function VideoToFramesPage() {
         </p>
       </motion.div>
 
+      {/* Centered dropzone before video is loaded */}
+      {!videoFile && (
+        <div className="mx-auto max-w-xl">
+          <VideoDropzone onFileSelect={handleFileSelect} />
+        </div>
+      )}
+
+      {videoFile && (
       <div className="grid gap-6 lg:grid-cols-[350px_1fr]">
         {/* Controls Sidebar */}
         <div className="space-y-4">
@@ -99,7 +107,7 @@ export default function VideoToFramesPage() {
             <CardContent className="p-4">
               <VideoDropzone
                 onFileSelect={handleFileSelect}
-                currentFile={videoFile ? { name: videoFile.name, size: videoFile.size } : null}
+                currentFile={{ name: videoFile.name, size: videoFile.size }}
                 onClear={handleClear}
               />
             </CardContent>
@@ -127,6 +135,7 @@ export default function VideoToFramesPage() {
                         duration={videoFile.duration}
                         extracting={extracting}
                         ffmpegReady={ffmpegReady}
+                        ffmpegError={ffmpegError}
                         onModeChange={store.setMode}
                         onFpsChange={store.setFps}
                         onCountChange={store.setCount}
@@ -230,6 +239,7 @@ export default function VideoToFramesPage() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }
